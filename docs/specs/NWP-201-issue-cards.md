@@ -5,7 +5,7 @@
 
 **Ticket:** [NWP-201](../tickets/NWP-201.md)
 **Author:** Blake (with Claude)
-**Status:** building
+**Status:** done
 
 ## Problem
 
