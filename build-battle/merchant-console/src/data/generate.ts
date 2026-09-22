@@ -1,5 +1,8 @@
+import { CARD_CATEGORIES, generateCardNumber } from "@/lib/cards"
 import { merchants } from "./merchants"
 import {
+  Card,
+  CardEvent,
   Currency,
   Dispute,
   Payment,
@@ -148,7 +151,83 @@ export function generate() {
   }
 
   const payouts = generatePayouts(payments)
-  return { payments, refunds, disputes, payouts }
+  const cards = generateCards()
+  return { payments, refunds, disputes, payouts, cards }
+}
+
+const NICKNAMES = [
+  "Marketing spend",
+  "Ad platform card",
+  "Contractor payouts",
+  "Travel & lodging",
+  "Office supplies",
+  "SaaS subscriptions",
+]
+
+/**
+ * Deterministic seed cards. Only `last4` and `numberRef` are stored; the
+ * generated full number is discarded immediately after seeding, just as it
+ * would be after a real issue call.
+ */
+function generateCards(): Card[] {
+  const cards: Card[] = []
+
+  /**
+   * A mix of statuses, with spentPercent as a whole-number share of the
+   * limit so one active card sits above 80% and one sits low. Integer math
+   * only: minor units never pass through a float.
+   */
+  const plan: {
+    status: Card["status"]
+    spentPercent: number
+    daysAgo: number
+  }[] = [
+    { status: "active", spentPercent: 86, daysAgo: 4 },
+    { status: "active", spentPercent: 12, daysAgo: 11 },
+    { status: "active", spentPercent: 47, daysAgo: 22 },
+    { status: "frozen", spentPercent: 60, daysAgo: 35 },
+    { status: "frozen", spentPercent: 5, daysAgo: 48 },
+    { status: "cancelled", spentPercent: 30, daysAgo: 57 },
+  ]
+
+  plan.forEach((entry, index) => {
+    const merchant = pick(merchants)
+    const createdAt = new Date(GENERATED_AT)
+    createdAt.setUTCDate(createdAt.getUTCDate() - entry.daysAgo)
+    createdAt.setUTCHours(between(0, 23), between(0, 59), between(0, 59), 0)
+
+    const number = generateCardNumber(rand)
+    const last4 = number.slice(-4)
+    const spendLimit = between(50_000, 1_500_000)
+    const spent = Math.floor((spendLimit * entry.spentPercent) / 100)
+
+    const events: CardEvent[] = [{ type: "issued", at: createdAt.toISOString() }]
+    if (entry.status === "frozen") {
+      const frozenAt = new Date(createdAt.getTime() + between(1, 5) * 86_400_000)
+      events.push({ type: "frozen", at: frozenAt.toISOString() })
+    }
+    if (entry.status === "cancelled") {
+      const cancelledAt = new Date(createdAt.getTime() + between(1, 5) * 86_400_000)
+      events.push({ type: "cancelled", at: cancelledAt.toISOString() })
+    }
+
+    cards.push({
+      id: `card_${pad(index + 1, 2)}`,
+      merchantId: merchant.id,
+      nickname: NICKNAMES[index] ?? `Card ${index + 1}`,
+      last4,
+      numberRef: `cn_${pad(index + 1, 6)}`,
+      spendLimit,
+      spent,
+      currency: merchant.currency as Currency,
+      status: entry.status,
+      category: pick(CARD_CATEGORIES),
+      createdAt: createdAt.toISOString(),
+      events,
+    })
+  })
+
+  return cards
 }
 
 function generatePayouts(payments: Payment[]): Payout[] {

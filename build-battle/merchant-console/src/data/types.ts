@@ -82,3 +82,63 @@ export interface PaymentFilters {
   sort?: "createdAt" | "amount"
   direction?: "asc" | "desc"
 }
+
+/**
+ * Virtual cards (NWP-201).
+ *
+ * Status is a state machine: active ⇄ frozen, either to cancelled, and
+ * cancelled is terminal. The transition table lives in `src/lib/cards.ts`.
+ */
+export type CardStatus = "active" | "frozen" | "cancelled"
+
+/** Merchant category lock, chosen at issue time. `any` means no lock. */
+export type CardCategory =
+  | "any"
+  | "advertising"
+  | "software"
+  | "contractors"
+  | "travel"
+  | "office"
+
+export type CardEventType = "issued" | "frozen" | "unfrozen" | "cancelled"
+
+export interface CardEvent {
+  type: CardEventType
+  /** ISO 8601, always UTC. */
+  at: string
+}
+
+/**
+ * A stored card never carries the full number. It carries the last four and
+ * a reference to the generated number; the number itself is returned once,
+ * in the creation response, and then does not exist anywhere in the store.
+ */
+export interface Card {
+  id: string
+  merchantId: string
+  nickname: string
+  /** Last four digits of the generated number. Always on the 4242 test BIN. */
+  last4: string
+  /** Opaque reference to the generated number. Not the number. */
+  numberRef: string
+  /** Integer minor units. Never a float. */
+  spendLimit: number
+  /** Integer minor units spent so far against the limit. */
+  spent: number
+  currency: Currency
+  status: CardStatus
+  category: CardCategory
+  /** ISO 8601, always UTC. */
+  createdAt: string
+  /** Status history, oldest first. The first entry is always `issued`. */
+  events: CardEvent[]
+}
+
+/** What the issue form sends. Everything here is validated on the server. */
+export interface IssueCardInput {
+  merchantId: string
+  nickname: string
+  spendLimit: number
+  currency: Currency
+  category: CardCategory
+}
