@@ -111,6 +111,8 @@ Agents own disjoint files. Phase 1 runs four Sonnet agents in parallel; phase 2 
 | Category lock (stretch) | Category on form, stored, shown in list and detail |
 | Tests (stretch) | `npm test` summary line in PR |
 | Empty and error states (stretch) | Empty table copy; drawer shows server `message` on `400`; action failure shows message |
+| Currency matches merchant (beyond ticket) | `src/data/cards.test.ts` rejects `GBP` on a USD merchant; `curl` → `400` |
+| Idempotent issue (beyond ticket) | `src/data/cards.test.ts` same key → same card, no second row; `curl` replay → `200 replayed` |
 
 ## Risks
 
