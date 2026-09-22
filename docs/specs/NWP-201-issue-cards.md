@@ -37,6 +37,7 @@ Ops issues virtual cards by messaging the platform team, who create them by hand
 | "`active ⇄ frozen`, either to `cancelled`, and `cancelled` is terminal" and "Guard the transition on the server" | `CLAUDE.md`, `.claude/rules/cards.md` | Cancelled cards come back to life |
 | "Anything from the client … is checked against an allowlist before it reaches … the store" | `CLAUDE.md` §4, `.claude/rules/api-routes.md` | Bad currency or limit persisted |
 | Reject missing merchant, limit ≤ 0, limit > 5,000,000 minor units, currency outside USD/EUR/GBP | Ticket, core criterion 6 | Wrong-limit cards, the bug that started this |
+| Currency must match the merchant's currency in `src/data/merchants.ts` | Reviewer credit beyond the ticket | A GBP merchant with a USD card cannot reconcile |
 | "Never edit seed data to make a failing case disappear" | root `CLAUDE.md` | Hidden defects |
 | "Use what is here … Tailwind only … Dialogs and forms must be operable" | `.claude/rules/components.md` | A11y and convention findings |
 
@@ -53,13 +54,13 @@ Every agent builds against this. Bodies are JSON; money is integer minor units.
 | Route | Request | Success | Errors |
 | --- | --- | --- | --- |
 | `GET /api/cards` | — | `200 { cards: Card[] }` newest first | — |
-| `POST /api/cards` | `IssueCardInput` | `201 { card: Card, number: string }` | `400 { message }` |
+| `POST /api/cards` | `IssueCardInput`, optional `Idempotency-Key` header | `201 { card: Card, number: string }`; a replay of a known key returns `200 { card, replayed: true }` with no number | `400 { message }` |
 | `GET /api/cards/[id]` | — | `200 { card: Card }` | `404 { message }` |
 | `PATCH /api/cards/[id]` | `{ status: CardStatus }` | `200 { card: Card }` | `400` bad status, `404` unknown, `409 { message }` illegal transition |
 
 `src/lib/cards.ts` exports: `luhnCheckDigit(digits)`, `isValidLuhn(number)`, `generateCardNumber(random?)` (16 digits, starts `4242`), `maskCardNumber(last4)` → `•••• 4242`, `CARD_TRANSITIONS`, `canTransition(from, to)`.
 
-`src/data/cards.ts` exports: `CARD_CURRENCIES`, `CARD_CATEGORIES`, `MAX_SPEND_LIMIT` (5,000,000), `validateIssueCardInput(body)`, `issueCard(input)`, `listCards()`, `cardById(id)`, `transitionCard(id, status)`.
+`src/data/cards.ts` exports: `CARD_CURRENCIES`, `CARD_CATEGORIES`, `MAX_SPEND_LIMIT` (5,000,000), `validateIssueCardInput(body)`, `issueCard(input, idempotencyKey?)`, `issuedCardForKey(key)`, `listCards()`, `cardById(id)`, `transitionCard(id, status)`. The allowlists themselves live in `src/lib/cards.ts` so client components can import them without pulling in the store.
 
 ## File map
 

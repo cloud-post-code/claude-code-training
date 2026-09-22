@@ -11,6 +11,7 @@ export function IssueCardSuccess({ result }: { result: IssuedCardResult }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
+    if (!result.number) return
     try {
       await navigator.clipboard.writeText(result.number)
       setCopied(true)
@@ -31,13 +32,22 @@ export function IssueCardSuccess({ result }: { result: IssuedCardResult }) {
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
           Card number
         </p>
-        <p className="mt-1 break-all font-mono text-lg text-gray-900 dark:text-gray-50">
-          {result.number}
-        </p>
-        <Button variant="secondary" className="mt-3 gap-2 py-1.5" onClick={handleCopy}>
-          <RiFileCopyLine className="size-4 shrink-0" aria-hidden="true" />
-          {copied ? "Copied" : "Copy"}
-        </Button>
+        {result.number ? (
+          <>
+            <p className="mt-1 break-all font-mono text-lg text-gray-900 dark:text-gray-50">
+              {result.number}
+            </p>
+            <Button variant="secondary" className="mt-3 gap-2 py-1.5" onClick={handleCopy}>
+              <RiFileCopyLine className="size-4 shrink-0" aria-hidden="true" />
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-gray-900 dark:text-gray-50">
+            This card was already issued by an earlier submit. Its number was shown once
+            and cannot be shown again.
+          </p>
+        )}
       </div>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

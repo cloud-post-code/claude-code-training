@@ -20,24 +20,27 @@ const LABEL_CLASS = "text-sm font-medium text-gray-900 dark:text-gray-50"
 
 const FALLBACK_ERROR = "Something went wrong. Try again."
 
-async function submitCard(body: {
-  merchantId: string
-  nickname: string
-  spendLimit: number
-  currency: Currency
-  category: CardCategory
-}) {
+async function submitCard(
+  body: {
+    merchantId: string
+    nickname: string
+    spendLimit: number
+    currency: Currency
+    category: CardCategory
+  },
+  idempotencyKey: string,
+) {
   try {
     const response = await fetch("/api/cards", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(body),
     })
-    const data = await response.json()
+    const data = (await response.json()) as { number?: string; message?: string }
     if (!response.ok) {
-      return { ok: false as const, message: data?.message ?? FALLBACK_ERROR }
+      return { ok: false as const, message: data.message ?? FALLBACK_ERROR }
     }
-    return { ok: true as const, number: data.number as string }
+    return { ok: true as const, number: data.number ?? null }
   } catch {
     return { ok: false as const, message: FALLBACK_ERROR }
   }
@@ -57,6 +60,8 @@ export function IssueCardForm({
   const [category, setCategory] = useState<CardCategory>("any")
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // One key per form instance: a retry of this exact submission cannot mint a second card.
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const handleMerchantChange = (id: string) => {
     setMerchantId(id)
@@ -75,7 +80,10 @@ export function IssueCardForm({
     }
 
     setSubmitting(true)
-    const result = await submitCard({ merchantId, nickname, spendLimit, currency, category })
+    const result = await submitCard(
+      { merchantId, nickname, spendLimit, currency, category },
+      idempotencyKey,
+    )
     setSubmitting(false)
 
     if (!result.ok) {

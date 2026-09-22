@@ -33,7 +33,8 @@ export function validateIssueCardInput(body: unknown): ValidationResult {
   const input = body as Record<string, unknown>
 
   const merchantId = input.merchantId
-  if (typeof merchantId !== "string" || !merchantById(merchantId)) {
+  const merchant = typeof merchantId === "string" ? merchantById(merchantId) : null
+  if (typeof merchantId !== "string" || !merchant) {
     return { ok: false, message: "Merchant is required and must be a known merchant." }
   }
 
@@ -62,6 +63,12 @@ export function validateIssueCardInput(body: unknown): ValidationResult {
   if (typeof currency !== "string" || !CARD_CURRENCIES.includes(currency as Currency)) {
     return { ok: false, message: "Currency must be one of USD, EUR, GBP." }
   }
+  if (currency !== merchant.currency) {
+    return {
+      ok: false,
+      message: `Currency must match the merchant's currency (${merchant.currency}).`,
+    }
+  }
 
   const category = input.category ?? "any"
   if (typeof category !== "string" || !CARD_CATEGORIES.includes(category as CardCategory)) {
@@ -80,12 +87,22 @@ export function validateIssueCardInput(body: unknown): ValidationResult {
   }
 }
 
+/** The card an earlier request with this Idempotency-Key already issued, if any. */
+export function issuedCardForKey(key: string): Card | null {
+  const id = store.issuedCardKeys[key]
+  return id ? cardById(id) : null
+}
+
 /**
  * Generates the number, stores a card carrying only `last4` and
  * `numberRef`, and returns the full number alongside the card. This is the
- * only place the full number ever leaves the server.
+ * only place the full number ever leaves the server. The optional key makes
+ * a retried request return the same card instead of issuing a second one.
  */
-export function issueCard(input: IssueCardInput): { card: Card; number: string } {
+export function issueCard(
+  input: IssueCardInput,
+  idempotencyKey?: string,
+): { card: Card; number: string } {
   const number = generateCardNumber()
   const last4 = number.slice(-4)
   const createdAt = new Date().toISOString()
@@ -106,6 +123,7 @@ export function issueCard(input: IssueCardInput): { card: Card; number: string }
   }
 
   store.cards.push(card)
+  if (idempotencyKey) store.issuedCardKeys[idempotencyKey] = card.id
   return { card, number }
 }
 

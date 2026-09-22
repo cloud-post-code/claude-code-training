@@ -21,7 +21,8 @@ import { IssueCardSuccess } from "./issue-card-success"
 export type MerchantOption = { id: string; name: string; currency: Currency }
 
 export type IssuedCardResult = {
-  number: string
+  /** Null when the request was a replay: the number was revealed once already. */
+  number: string | null
   nickname: string
   merchantName: string
   spendLimit: number

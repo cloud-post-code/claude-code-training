@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import {
   cardById,
   issueCard,
+  issuedCardForKey,
   listCards,
   transitionCard,
   validateIssueCardInput,
@@ -60,6 +61,12 @@ describe("validateIssueCardInput", () => {
     expect(result.ok).toBe(false)
   })
 
+  it("rejects a currency that does not match the merchant's currency", () => {
+    const result = validateIssueCardInput({ ...validBody, currency: "GBP" })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.message).toContain("must match the merchant")
+  })
+
   it("rejects a category outside the allowlist", () => {
     const result = validateIssueCardInput({ ...validBody, category: "groceries" })
     expect(result.ok).toBe(false)
@@ -77,6 +84,22 @@ describe("validateIssueCardInput", () => {
 })
 
 describe("issueCard", () => {
+  it("returns the same card for a repeated Idempotency-Key and records no second card", () => {
+    const input = {
+      merchantId,
+      nickname: "Retry",
+      spendLimit: 1_000,
+      currency: "USD" as const,
+      category: "any" as const,
+    }
+    const before = listCards().length
+    const { card } = issueCard(input, "key-retry")
+
+    expect(issuedCardForKey("key-retry")).toBe(card)
+    expect(issuedCardForKey("key-unknown")).toBeNull()
+    expect(listCards().length).toBe(before + 1)
+  })
+
   it("gives consecutive cards distinct ids and number references", () => {
     const input = {
       merchantId,
